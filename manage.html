@@ -1,0 +1,51 @@
+{% extends "_manage_base.html" %}
+{% block content %}
+
+<form action="manage" method="post">    
+
+<h2>Streams I own</h2>
+
+<table id="streams_owned">
+  <tr>
+    <th>Name</th>
+    <th>Last New Picture</th>
+    <th>Views</th>
+    <th>Delete</th>
+  </tr>
+
+  {% for row in user_streams %}
+    <tr>
+      <td> <a href="/view?stream_id={{ row['stream_id'] }}">{{ row["stream_id"] }}</a> </td>
+      <td>{{ row["last"] }}</td>
+      <td>{{ row["views"] }}</td>
+      <td> <input type="checkbox" value=""> </td>
+    </tr>
+  {% endfor %}
+</table>
+
+<input type="submit" name="delete" value="Delete Checked">
+
+<h2>Streams I subscribe to</h2>
+<table id="subscribed_streams">
+  <tr>
+    <th>Name</th>
+    <th>Last New Picture</th>
+    <th>Views</th>
+    <th>Unsubscribe</th>
+  </tr>
+
+  {% for row in subscribed_streams %}
+    <tr>
+      <td> <a href="{{ row["url"] }}">{{ row["name"] }}</a> </td>
+      <td>{{ row["last"] }}</td>
+      <td>{{ row["views"] }}</td>
+      <td> <input type="checkbox" value=""> </td>
+    </tr>
+  {% endfor %}
+</table>
+
+<input type="submit" name="unsubscribe" value="Unsubscribe Checked Streams">
+
+</form>        
+
+{% endblock %}
