@@ -1,0 +1,29 @@
+{% extends "_manage_base.html" %}
+{% block content %}
+    <form action="create" method="post">
+
+      <br>
+      <input type="text" name="stream_id">
+
+      <br>
+      <h2>Name your stream</h2>
+      <br>
+      
+      <input type="textarea" name="subscribers">
+      <br>
+      <input type="textarea" name="message" value="Join my stream!">
+
+      <h2>Add subscribers</h2>
+
+      <input type="textarea" name="tags">
+
+      <h2>Tag your stream</h2>
+
+      <input type="text" name="cover_url">
+
+      <h2>URL to cover image (optional)</h2>
+
+      <input type="submit" value="Create Stream">
+
+    </form>
+{% endblock %}

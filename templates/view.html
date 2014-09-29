@@ -1,0 +1,33 @@
+{% extends "_manage_base.html" %}
+{% block content %}
+
+<!-- <table id="pictures"> -->
+<!--   <tr> -->
+<!--     <td><img src="{{ }}"></td> -->
+<!--     <td><img src="{{ }}"></td> -->
+<!--     <td><img src="{{ }}"></td> -->
+<!--     <td><input type="text" name="next" value="See more"></td> -->
+<!--   </tr> -->
+<!-- </table> -->
+
+<br>
+
+<form action="{{ upload_url }}" method="post">  
+  <table>
+    <tr>
+      <td><input type="text" value="filename"></td>
+      <td><input type="textarea" value="comment"></td>
+    </tr>
+    <tr>
+      <td><input type="submit" name="upload" value="Upload file"></td>
+      <td><h1>Add an Image</h1></td>
+    </tr>
+
+    <br>
+
+    <input type="submit" name="subscribe" value="Subscribe">
+
+  </table>
+</form>
+  
+{% endblock %}

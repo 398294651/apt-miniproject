@@ -30,7 +30,7 @@ from models import Stream, User
 
 
 JINJA_ENVIRONMENT = jinja2.Environment(
-    loader=jinja2.FileSystemLoader(os.path.dirname(__file__)),
+    loader=jinja2.FileSystemLoader('templates'),
     extensions=['jinja2.ext.autoescape'],
     autoescape=True)
 
@@ -41,7 +41,8 @@ NAV_LINKS = {'Create': '/create'
              ,'Social': '/manage'
              ,'Manage': '/manage'}
 
-SERVICES_URL = 'http://localhost:8080/services'
+# SERVICES_URL = 'http://localhost:8080/services'
+SERVICES_URL = 'http://apt-miniproject-fall14.appspot.com/services'
 # query_params = {'service': 'getstreams', 'user_id': user_id}
 # urllib.urlencode
 

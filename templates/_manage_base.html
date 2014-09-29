@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+{% autoescape true %}
+<html>
+  <body>
+    <head>
+      <link type="text/css" rel="stylesheet" href="/stylesheets/main.css" />
+      <title>Connexus</title>
+    </head>
+
+    <h1>Connex.us</h1>
+
+    {% for link in nav_links %}
+      | 
+      {% if path == link %}
+        {{ link }}
+      {% else %}
+        <a href="{{ nav_links[link] }}">{{ link }}</a>
+      {% endif %}
+
+    {% endfor %}
+
+    <!-- <h2>{{ page_title }}</h2> -->
+
+    {% block content %}{% endblock %}
+
+    <!-- {% for greeting in greetings %} -->
+    <!--   {% if greeting.author %} -->
+    <!--     <b>{{ greeting.author.nickname() }}</b> wrote: -->
+    <!--   {% else %} -->
+    <!--    An anonymous person wrote: -->
+    <!--   {% endif %} -->
+    <!--   <blockquote>{{ greeting.content }}</blockquote> -->
+    <!-- {% endfor %} -->
+    <!-- <form action="/sign?guestbook_name={{ guestbook_name }}" method="post"> -->
+    <!--   <div><textarea name="content" rows="3" cols="60"></textarea></div> -->
+    <!--   <div><input type="submit" value="Sign Guestbook"></div> -->
+    <!-- </form> -->
+
+  </body>
+</html>
+{% endautoescape %}

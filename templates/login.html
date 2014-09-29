@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+{% autoescape true %}
+<html>
+  <body>
+    <head>
+      <link type="text/css" rel="stylesheet" href="/stylesheets/main.css" />
+      <title>Miniproject Login</title>
+    </head>
+
+    <h1>Welcome to Connexus!</h1>
+
+    <h2>Share the world!</h2>
+
+    <!-- {% for greeting in greetings %} -->
+    <!--   {% if greeting.author %} -->
+    <!--     <b>{{ greeting.author.nickname() }}</b> wrote: -->
+    <!--   {% else %} -->
+    <!--    An anonymous person wrote: -->
+    <!--   {% endif %} -->
+    <!--   <blockquote>{{ greeting.content }}</blockquote> -->
+    <!-- {% endfor %} -->
+
+    <!-- <form action="login" method="post"> -->
+    <!--   <input type="text" value="{{ user_id }}" name="user_id"> -->
+    <!--   <br> -->
+    <!--   <input type="password" name="password"> -->
+    <!--   <br> -->
+    <!--   <input type="submit" value="Login"> -->
+    <!-- </form> -->
+
+    <a href="{{ url }}">{{ url_text }}</a>
+
+  </body>
+</html>
+{% endautoescape %}
