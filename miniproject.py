@@ -17,6 +17,8 @@
 #
 import os, re
 import logging
+from collections import OrderedDict
+
 import urllib, json, jinja2
 
 import webapp2
@@ -34,12 +36,12 @@ JINJA_ENVIRONMENT = jinja2.Environment(
     extensions=['jinja2.ext.autoescape'],
     autoescape=True)
 
-NAV_LINKS = {'Create': '/create'
-             ,'View': '/view'
-             ,'Search': '/search'
-             ,'Trending': '/trending'
-             ,'Social': '/social'
-             ,'Manage': '/manage'}
+NAV_LINKS = OrderedDict([('Create', '/create')
+                         ,('View', '/view')
+                         ,('Search', '/search')
+                         ,('Trending', '/trending')
+                         ,('Social', '/social')
+                         ,('Manage', '/manage')])
 
 SERVICES_URL = 'http://localhost:8080'
 # SERVICES_URL = 'http://apt-miniproject-fall14.appspot.com/services'
@@ -53,12 +55,12 @@ def CallService(service,**params):
     jresult = json.loads(result.content)
 
     status = {}
-    if jresult['error']:
+    if 'error' in jresult:
         status['error'] = jresult['error']
     elif not result.status_code == 200:
         status['error'] = "HTTP %d Error" % result.status_code
 
-    if jresult['status']:
+    if 'status' in jresult:
         status['status'] = jresult['status']
     else:
         status['status'] = "HTTP %d" % result.status_code
@@ -89,14 +91,8 @@ class LoginHandler(webapp2.RequestHandler):
 
         user = gusers.get_current_user()
         if user:
-            # form = json.dumps({'user':user})
-            # result = urlfetch.fetch('/manage', payload=form, method=urlfetch.POST)
             self.redirect('/manage')
             return
-
-            # template_values['url'] = gusers.create_logout_url(self.request.uri)
-            # template_values['url_text'] = "Log out"
-            # template_values['user_name'] = user.nickname()
         else:
             template_values['url'] = gusers.create_login_url(self.request.uri)
             template_values['url_text'] = "Log In"
@@ -105,56 +101,45 @@ class LoginHandler(webapp2.RequestHandler):
         template = JINJA_ENVIRONMENT.get_template('login.html')
         self.response.write(template.render(template_values))
 
-    # def post(self):
-    #     uid = self.request.get('user_id')
-    #     pw = self.request.get('password')
 
-    #     if un and pw:
-    #         self.redirect('/manage')
-    #     else:
-    #         self.redirect('/login')
-
-# Management
 class ManageHandler(webapp2.RequestHandler):
     def get(self):
         template_values = {}
         template_values['nav_links'] = NAV_LINKS
         template_values['path'] = os.path.basename(self.request.path).capitalize()
 
-        user = gusers.get_current_user()
-        cxsuser = User.getUser(user.user_id())
-
         # Create new user account if needed
-        user_streams = None
-        subscribed_streams = None
+        cxsuser = User.getUser(gusers.get_current_user().user_id())
         if not cxsuser:
             cxsuser = User(user_id=user.user_id())
             cxsuser.put()
-        else:
-            status, result = CallService('get_strm',user_id=cxsuser.user_id,service=get_streams)
-            if 'error' in status:
-                self.redirect('/error?'+urllib.urlencode(status))
-                return
 
-            user_streams = result['user_streams']
-            subscribed_streams = result['subscribed_streams']
+        # Get streams
+        status, result = CallService('get_strm',user_id=cxsuser.user_id)
+        if 'error' in status:
+            self.redirect('/error?'+urllib.urlencode(status))
+            return
 
         template_values['page_title'] = "Streams I own"
-        template_values['user_streams'] = user_streams
-        template_values['subscribed_streams'] = subscribed_streams
+        template_values['user_streams'] = result['user_streams']
+        template_values['subscribed_streams'] = result['subscribed_streams']
 
         template = JINJA_ENVIRONMENT.get_template('manage.html')
         self.response.write(template.render(template_values))
 
-
     def post(self):
         # Delete any requested streams
+        form = {'user_id': gusers.get_current_user().user_id()}
         if self.request.get('delete'):
-            None
-        
-        # Unsubscribe to any requested streams
+            svc = 'del_strm'
         if self.request.get('unsubscribe'):
-            None
+            svc = 'unsub_strm'
+
+        form['streams'] = self.request.get_all('stream_id')
+        status, result = CallService(svc,**form)
+        if 'error' in status:
+            self.redirect('/error?'+urllib.urlencode(status))
+            return
 
         self.redirect('/manage')
         return
@@ -176,12 +161,8 @@ class CreateHandler(webapp2.RequestHandler):
         for name in ('stream_id','subscribers','tags','cover_url'):
             form[name] = self.request.get(name)
 
-        if not form['stream_id'] or not form['tags']:
-            self.redirect('/create')
-            return
-
         form['subscribers'] = re.split(r'\s*,?\s*',form['subscribers'].strip())
-        form['tags'] = re.split(r'\s*,?\s*',form['tags'].strip())
+        form['tags'] = re.split(r'\s#*,?\s*',form['tags'].strip())
         form['user_id'] = gusers.get_current_user().user_id()
 
         # Request to create a new stream
@@ -197,32 +178,6 @@ class CreateHandler(webapp2.RequestHandler):
         # We're done with you
         self.redirect('/manage')
 
-class ServeHandler(blobstore_handlers.BlobstoreDownloadHandler):
-  def get(self, resource):
-    resource = str(urllib.unquote(resource))
-    blob_info = blobstore.BlobInfo.get(resource)
-    self.send_blob(blob_info)
-
-
-class UploadHandler(blobstore_handlers.BlobstoreUploadHandler):
-  def post(self):
-    upload = self.get_uploads('filename')[0]
-
-    user_photo = Image(image_id=self.request.get('title')
-                       ,image_blob=upload.key())
-
-    stream = Stream.getStream(self.request.get('stream_id'))
-    stream.images.insert(0,user_photo.image_blob)
-    stream.put()
-
-    self.redirect('/view')
-
-class SubscribeHandler(webapp2.RequestHandler):
-    def post(self):
-        user = User.getUser(self.request.get('user_id'))
-        user.subscribed_streams = form['streams'] + user.subscribed_streams
-        user.put()
-
 
 #View handler
 class ViewHandler(webapp2.RequestHandler):
@@ -234,8 +189,8 @@ class ViewHandler(webapp2.RequestHandler):
         user = gusers.get_current_user()
         cxsuser = User.getUser(user.user_id())
         stream_id = self.request.get('stream_id')
-        page_range = self.request.get('pg_rg')
-        
+        page_range = self.request.get('page_range')
+
         status, result = CallService('view',stream_id=stream_id,page_range=page_range)
         if 'error' in status:
             self.redirect('/error?'+urllib.urlencode(status))
@@ -243,24 +198,30 @@ class ViewHandler(webapp2.RequestHandler):
         
         template_values['upload_url'] = blobstore.create_upload_url('/upload')
         template_values['stream'] = result['images']
+        template_values['stream_id'] = stream_id
 
         template = JINJA_ENVIRONMENT.get_template('view.html')
         self.response.write(template.render(template_values))
 
     def post(self):
         form = {}
-        form['user_id'] = gusers.get_current_user().user_id()
 
-        service = 'view_stream'
-        lastimg = self.request.get('img3')
-        form['page_range'] = range(lastimg+1,lastimg+4)
+        form['stream_id'] = self.request.get('stream_id')        
+        if self.request.get('subscribe'):
+            svc = 'sub_strm'
+            form['user_id'] = gusers.get_current_user().user_id()
+            form['streams'] = [form['stream_id']]
+        elif self.request.get('next'):
+            svc = 'view'
+            form['page_range'] = self.request.get('page_range')
 
-        status, result = CallService(service,**form)
+        status, result = CallService(svc,**form)
         if 'error' in status:
             self.redirect('/error?'+urllib.urlencode(status))
             return
 
-        self.redirect('/view')
+        self.redirect('/view?'+urllib.urlencode({'page_range':result['page_range'] if 'page_range' in result else ''
+                                                 ,'stream_id':form['stream_id']}))
             
 
 def SendEmail(msg,to_list):
@@ -293,13 +254,14 @@ app = webapp2.WSGIApplication([
     ,('/view', ViewHandler)
     ,('/create', CreateHandler)
     ,('/error',ErrorHandler)
-    ,('/svc_sub', SubscribeHandler)
     ,('/svc_upld',UploadHandler)
     ,('/svc_view',ViewStreamHandler)
     ,('/svc_del_usr', DeleteUserHandler)
     ,('/svc_new_usr', CreateUserHandler)    
+    ,('/svc_sub_strm', SubscribeHandler)
+    ,('/svc_unsub_strm', UnsubscribeHandler)
     ,('/svc_new_strm', CreateStreamHandler)
     ,('/svc_del_strm', DeleteStreamsHandler)
     ,('/svc_get_strm', GetStreamsHandler)
-    ,('/svc_testsvc', TestServiceHandler)
+    ,('/svc_test', TestServiceHandler)
 ], debug=True)

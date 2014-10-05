@@ -15,16 +15,18 @@
 
   {% for row in user_streams %}
     <tr>
-      <td> <a href="/view?stream_id={{ row['stream_id'] }}">{{ row["stream_id"] }}</a> </td>
+      <td> <a href="/view?stream_id={{ row['stream_id'] }}">{{ row['stream_id'] }}</a> </td>
       <td>{{ row["last"] }}</td>
       <td>{{ row["views"] }}</td>
-      <td> <input type="checkbox" value=""> </td>
+      <td> <input type="checkbox" name="stream_id" value="{{ row['stream_id'] }}"> </td>
     </tr>
   {% endfor %}
 </table>
 
 <input type="submit" name="delete" value="Delete Checked">
+</form>
 
+<form action="manage" method="post">
 <h2>Streams I subscribe to</h2>
 <table id="subscribed_streams">
   <tr>
@@ -36,16 +38,16 @@
 
   {% for row in subscribed_streams %}
     <tr>
-      <td> <a href="{{ row["url"] }}">{{ row["name"] }}</a> </td>
+      <td> <a href="/view?stream_id={{ row['stream_id'] }}">{{ row['stream_id'] }}</a> </td>
       <td>{{ row["last"] }}</td>
       <td>{{ row["views"] }}</td>
-      <td> <input type="checkbox" value=""> </td>
+      <td> <input type="checkbox" name="stream_id" value="{{ row['stream_id'] }}"> </td>
     </tr>
   {% endfor %}
 </table>
 
 <input type="submit" name="unsubscribe" value="Unsubscribe Checked Streams">
+</form>
 
-</form>        
 
 {% endblock %}

@@ -4,6 +4,14 @@ from google.appengine.ext import ndb
 class Image(ndb.Model):
     image_id = ndb.StringProperty()
     image_blob = ndb.BlobProperty()
+    # blob_key = blobstore.BlobReferenceProperty()
+
+    comments = ndb.StringProperty()
+
+    @classmethod
+    def getImage(cls,img_id):
+        img = cls.query(cls.image_id == img_id).fetch()
+        return img[0] if img else img
 
 
 class Stream(ndb.Model):
@@ -24,6 +32,7 @@ class Stream(ndb.Model):
         # if not user: return
         stream = cls.query(cls.stream_id == stream_id).fetch()
         return stream[0] if stream else stream
+
 
 class User(ndb.Model):
     user_id = ndb.StringProperty()

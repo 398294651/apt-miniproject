@@ -7,18 +7,82 @@ from google.appengine.ext import blobstore
 from models import Stream, User, Image
 
 
+class ServeHandler(blobstore_handlers.BlobstoreDownloadHandler):
+  def get(self, resource):
+    resource = str(urllib.unquote(resource))
+    blob_info = blobstore.BlobInfo.get(resource)
+    self.send_blob(blob_info)
+
+
+class UploadHandler(blobstore_handlers.BlobstoreUploadHandler):
+  def post(self):
+    upload = self.get_uploads('filename')[0]
+
+    user_photo = Image(image_id=self.request.get('image_id')
+                       ,image_blob=upload.key())
+
+    stream = Stream.getStream(self.request.get('stream_id'))
+    stream.images.insert(0,user_photo.image_blob)
+    stream.put()
+
+    self.redirect('/view')
+
+
+class SubscribeHandler(webapp2.RequestHandler):
+    def post(self):
+        form = json.loads(self.request.body)
+
+        user = User.getUser(form['user_id'])
+        if not user:
+            self.response.write(json.dumps( {'error':"User %(user_id)r does not exist" % form} ) )
+            return
+
+        user.subscribed_streams = form['streams'] + user.subscribed_streams
+        user.put()
+
+        self.response.write(json.dumps({'status': "Subscribed user %(user_id)r to %(streams)s" % form}))
+
+class UnsubscribeHandler(webapp2.RequestHandler):
+    def post(self):
+      form = json.loads(self.request.body)
+
+      user = User.getUser(form['user_id'])
+      if not user:
+        self.response.write(json.dumps( {'error':"User %(user_id)r does not exist" % form} ) )
+        return
+
+      for strm_id in form['streams']:
+        idx = user.subscribed_streams.index(strm_id)
+        del user.subscribed_streams[idx]
+
+        stream = Stream.getStream(form['stream_id'])
+        if stream:
+          idx = stream.subscribers.index(strm_id)
+          del stream.subscribers[idx]
+
+      user.put()
+      self.response.write(json.dumps({'status': "Unsubscribed user %(user_id)r from %(streams)s" % form}))
+
 class ViewStreamHandler(webapp2.RequestHandler):
     def post(self):
         form = json.loads(self.request.body)        
 
-        q = Stream.query(Stream.stream_id==form['stream_id'])
-        if q.count() == 0:
-            self.response.write(json.dumps({'Error': "Stream %(stream_id)r does not exist." % form}))
+        stream = Stream.getStream(form['stream_id'])
+        if not stream:
+            self.response.write(json.dumps({'error': "Stream %(stream_id)r does not exist." % form}))
             return
 
-        stream = q.fetch()[0]
+        outpages = []
+        images = []
+        for idx in form['page_range'].split(','):
+            if not idx: break
+            idx = int(idx)
+            if idx == len(stream.images): continue
+            outpages.append(str(idx))
+            img_id = stream.images[idx]
+            images.append(Image.getImage(img_id).image_blob)
 
-        self.response.write(json.dumps({'page_range':[],'images':[]}))
+        self.response.write(json.dumps({'page_range':','.join(outpages),'images':images}))
 
     
 class GetStreamsHandler(webapp2.RequestHandler):
