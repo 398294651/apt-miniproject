@@ -44,7 +44,7 @@ NAV_LINKS = OrderedDict([('Create', '/create')
                          ,('Manage', '/manage')])
 
 # SERVICES_URL = 'http://localhost:8080'
-SERVICES_URL = 'http://apt-miniproject-fall14.appspot.com/services'
+SERVICES_URL = 'http://apt-miniproject-fall14.appspot.com/'
 # query_params = {'service': 'getstreams', 'user_id': user_id}
 # urllib.urlencode
 
