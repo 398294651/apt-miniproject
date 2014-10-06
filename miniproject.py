@@ -111,7 +111,7 @@ class ManageHandler(webapp2.RequestHandler):
         # Create new user account if needed
         cxsuser = User.getUser(gusers.get_current_user().user_id())
         if not cxsuser:
-            cxsuser = User(user_id=user.user_id())
+            cxsuser = User(user_id=gusers.get_current_user().user_id())
             cxsuser.put()
 
         # Get streams
@@ -120,7 +120,6 @@ class ManageHandler(webapp2.RequestHandler):
             self.redirect('/error?'+urllib.urlencode(status))
             return
 
-        template_values['page_title'] = "Streams I own"
         template_values['user_streams'] = result['user_streams']
         template_values['subscribed_streams'] = result['subscribed_streams']
 
@@ -186,19 +185,20 @@ class ViewHandler(webapp2.RequestHandler):
         template_values['nav_links'] = NAV_LINKS
         template_values['path'] = os.path.basename(self.request.path).capitalize()
 
-        user = gusers.get_current_user()
-        cxsuser = User.getUser(user.user_id())
+        cxsuser = User.getUser(gusers.get_current_user().user_id())
         stream_id = self.request.get('stream_id')
         page_range = self.request.get('page_range')
+        if not page_range: page_range = '0,1,2'
 
         status, result = CallService('view',stream_id=stream_id,page_range=page_range)
         if 'error' in status:
             self.redirect('/error?'+urllib.urlencode(status))
             return
-        
-        template_values['upload_url'] = blobstore.create_upload_url('/upload')
+
+        template_values['upload_url'] = blobstore.create_upload_url('/svc_upload')
         template_values['stream'] = result['images']
         template_values['stream_id'] = stream_id
+        template_values['page_range'] = page_range
 
         template = JINJA_ENVIRONMENT.get_template('view.html')
         self.response.write(template.render(template_values))
@@ -213,7 +213,7 @@ class ViewHandler(webapp2.RequestHandler):
             form['streams'] = [form['stream_id']]
         elif self.request.get('next'):
             svc = 'view'
-            form['page_range'] = self.request.get('page_range')
+            form['page_range'] = ','.join(str(int(i)+1) for i in self.request.get('page_range').split(','))
 
         status, result = CallService(svc,**form)
         if 'error' in status:
@@ -254,8 +254,9 @@ app = webapp2.WSGIApplication([
     ,('/view', ViewHandler)
     ,('/create', CreateHandler)
     ,('/error',ErrorHandler)
-    ,('/svc_upld',UploadHandler)
+    ,('/svc_upload',UploadHandler)
     ,('/svc_view',ViewStreamHandler)
+    ,('/svc_serve',ServeHandler)
     ,('/svc_del_usr', DeleteUserHandler)
     ,('/svc_new_usr', CreateUserHandler)    
     ,('/svc_sub_strm', SubscribeHandler)

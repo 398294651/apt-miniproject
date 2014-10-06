@@ -1,4 +1,5 @@
 import json
+import os
 
 import webapp2
 from google.appengine.ext.webapp import blobstore_handlers
@@ -8,10 +9,12 @@ from models import Stream, User, Image
 
 
 class ServeHandler(blobstore_handlers.BlobstoreDownloadHandler):
-  def get(self, resource):
-    resource = str(urllib.unquote(resource))
-    blob_info = blobstore.BlobInfo.get(resource)
-    self.send_blob(blob_info)
+  def get(self):
+    blob_key = self.request.get('blob_key')
+    if not blobstore.get(blob_key):
+      self.error(404)
+    else:
+      self.send_blob(blob_key)
 
 
 class UploadHandler(blobstore_handlers.BlobstoreUploadHandler):
@@ -19,13 +22,16 @@ class UploadHandler(blobstore_handlers.BlobstoreUploadHandler):
     upload = self.get_uploads('filename')[0]
 
     user_photo = Image(image_id=self.request.get('image_id')
-                       ,image_blob=upload.key())
+                       ,blob_key=upload.key()
+                       ,comments=self.request.get('comments'))
+    user_photo.put()
 
     stream = Stream.getStream(self.request.get('stream_id'))
-    stream.images.insert(0,user_photo.image_blob)
+    stream.images.insert(0,"/svc_serve?blob_key=%s" % user_photo.blob_key)
+    stream.last_add = str(user_photo.create_date)
     stream.put()
 
-    self.redirect('/view')
+    self.redirect('/view?'+("stream_id=%s" % self.request.get('stream_id')))
 
 
 class SubscribeHandler(webapp2.RequestHandler):
@@ -41,6 +47,7 @@ class SubscribeHandler(webapp2.RequestHandler):
         user.put()
 
         self.response.write(json.dumps({'status': "Subscribed user %(user_id)r to %(streams)s" % form}))
+
 
 class UnsubscribeHandler(webapp2.RequestHandler):
     def post(self):
@@ -63,6 +70,7 @@ class UnsubscribeHandler(webapp2.RequestHandler):
       user.put()
       self.response.write(json.dumps({'status': "Unsubscribed user %(user_id)r from %(streams)s" % form}))
 
+
 class ViewStreamHandler(webapp2.RequestHandler):
     def post(self):
         form = json.loads(self.request.body)        
@@ -72,17 +80,20 @@ class ViewStreamHandler(webapp2.RequestHandler):
             self.response.write(json.dumps({'error': "Stream %(stream_id)r does not exist." % form}))
             return
 
+        stream.views += 1
+        stream.put()
+
         outpages = []
         images = []
         for idx in form['page_range'].split(','):
             if not idx: break
             idx = int(idx)
-            if idx == len(stream.images): continue
+            if idx >= len(stream.images): continue
             outpages.append(str(idx))
-            img_id = stream.images[idx]
-            images.append(Image.getImage(img_id).image_blob)
+            images.append(stream.images[idx])
+        outpages = ','.join(outpages)
 
-        self.response.write(json.dumps({'page_range':','.join(outpages),'images':images}))
+        self.response.write(json.dumps({'page_range':outpages,'images':images}))
 
     
 class GetStreamsHandler(webapp2.RequestHandler):
@@ -90,9 +101,8 @@ class GetStreamsHandler(webapp2.RequestHandler):
         form = json.loads(self.request.body)
         user = User.getUser(form['user_id'])
 
-        payload = {'user_streams': [Stream.getStream(stream_id).to_dict() for stream_id in user.user_streams]
-                   , 'subscribed_streams': [Stream.getStream(stream_id).to_dict() for stream_id in user.subscribed_streams]}
-        payload['user_id'] = user.user_id
+        payload = {'user_streams': [Stream.getStream(stream_id).to_dict() for stream_id in user.user_streams if Stream.getStream(stream_id)]
+                   , 'subscribed_streams': [Stream.getStream(stream_id).to_dict() for stream_id in user.subscribed_streams if Stream.getStream(stream_id)]}
 
         self.response.write(json.dumps(payload))
 
@@ -122,28 +132,22 @@ class CreateStreamHandler(webapp2.RequestHandler):
 
         self.response.write(json.dumps({'status': 'Created stream %(stream_id)r' % form}))
 
+def deleteUserStreams(user_id,streams):
+  # delete stream references from users list
+    user = User.getUser(user_id)
+    for sid in streams:
+        if sid not in user.user_streams: continue
 
+        idx = user.user_streams.index(sid)
+        del user.user_streams[idx]
+    user.put()
+        
 class DeleteStreamsHandler(webapp2.RequestHandler):
     def post(self):
         form = json.loads(self.request.body)
 
-        # delete stream references from users list
-        user = User.getUser(form['user_id'])
-        for sid in form['streams']:
-            if sid not in user.user_streams: continue
-
-            idx = user.user_streams.index(sid)
-            del user.user_streams[idx]
-        user.put()
-
-        # delete subscriber stream references
-        for user in User.query(User.subscribed_streams.IN(form['streams'])):
-            for sid in form['streams']:
-                if sid not in user.subscribed_streams: continue
-
-                idx = user.subscribed_streams.index(sid)
-                del user.subscribed_streams[idx]
-                user.put()
+        deleteUserStreams(form['user_id'],form['streams'])
+        deleteSubscriptionReferences(form['streams'])
 
         # Now, delete the streams
         for strm in Stream.query(Stream.stream_id.IN(form['streams'])):
@@ -151,16 +155,29 @@ class DeleteStreamsHandler(webapp2.RequestHandler):
 
         self.response.write(json.dumps({'status': "Deleted streams %(streams)r" % form}))
 
+def deleteSubscriptionReferences(streams):
+    # delete subscriber stream references
+    for user in User.query(User.subscribed_streams.IN(streams)):
+        for sid in streams:
+            if sid not in user.subscribed_streams: continue
+
+            idx = user.subscribed_streams.index(sid)
+            del user.subscribed_streams[idx]
+        user.put()
+        
 
 class DeleteUserHandler(webapp2.RequestHandler):
     def post(self):
         form = json.loads(self.request.body)        
         usr = User.getUser(form['user_id'])
-        if usr:
-            usr.key.delete()
-            self.response.write(json.dumps({'status': 'Deleted user %(user_id)r' % form}))
-        else:
+        if not usr:
             self.response.write(json.dumps({'status': 'User %(user_id)r not found' % form}))
+            return
+
+        deleteUserStreams(form['user_id'],usr.user_streams)
+
+        usr.key.delete()
+        self.response.write(json.dumps({'status': 'Deleted user %(user_id)r' % form}))
 
         
 class CreateUserHandler(webapp2.RequestHandler):
@@ -186,23 +203,13 @@ def ListUsers(form):
     return {'Users': [o.to_dict() for o in User.query()]}
 
 def ListImages(form):
-    return {'Images': [o.to_dict() for o in Image.query()]}
+    return {'Images': [o.to_dict() for o in Image.query() if o]}
 
 def ListStreams(form):
     return {'streams':[o.to_dict() for o in Stream.query()]}
 
     
-def DumpStream(form):
-    q = Stream.query(Stream.stream_id==form['stream_id'])
-    if q.count() == 0:
-        return {'Error': "Stream %(stream_id)r does not exist." % form}
-
-    stream = q.fetch()[0]
-
-    return stream.to_dict()
-
-CallHandler = {'dump_stream':DumpStream,
-               'list_users':ListUsers,
+CallHandler = {'list_users':ListUsers,
                'list_streams':ListStreams}
 
 class TestServiceHandler(webapp2.RequestHandler):

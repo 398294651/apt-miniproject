@@ -3,8 +3,9 @@ from google.appengine.ext import ndb
 
 class Image(ndb.Model):
     image_id = ndb.StringProperty()
-    image_blob = ndb.BlobProperty()
-    # blob_key = blobstore.BlobReferenceProperty()
+    # image_blob = ndb.BlobProperty()
+    blob_key = ndb.BlobKeyProperty()
+    # create_date = ndb.DateTimeProperty(auto_now_add=True)
 
     comments = ndb.StringProperty()
 
@@ -24,7 +25,7 @@ class Stream(ndb.Model):
     views = ndb.IntegerProperty()
 
     subscribers = ndb.StringProperty(repeated=True)
-    # last_access = ndb.DateTimeProperty(auto_now_add=True)
+    # last_add = ndb.StringProperty()
 
     @classmethod
     def getStream(cls,stream_id):

@@ -16,7 +16,7 @@
   {% for row in user_streams %}
     <tr>
       <td> <a href="/view?stream_id={{ row['stream_id'] }}">{{ row['stream_id'] }}</a> </td>
-      <td>{{ row["last"] }}</td>
+      <td>{{ row["last_add"] }}</td>
       <td>{{ row["views"] }}</td>
       <td> <input type="checkbox" name="stream_id" value="{{ row['stream_id'] }}"> </td>
     </tr>
@@ -39,7 +39,7 @@
   {% for row in subscribed_streams %}
     <tr>
       <td> <a href="/view?stream_id={{ row['stream_id'] }}">{{ row['stream_id'] }}</a> </td>
-      <td>{{ row["last"] }}</td>
+      <td>{{ row["last_add"] }}</td>
       <td>{{ row["views"] }}</td>
       <td> <input type="checkbox" name="stream_id" value="{{ row['stream_id'] }}"> </td>
     </tr>
