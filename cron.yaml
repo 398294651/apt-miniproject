@@ -1,0 +1,4 @@
+cron:
+- description: trending report
+  url: /svc/report/send
+  schedule: every 5 mins

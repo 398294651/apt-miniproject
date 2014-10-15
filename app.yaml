@@ -8,8 +8,12 @@ handlers:
 - url: /stylesheets
   static_dir: stylesheets
 
+- url: /scripts
+  static_dir: scripts  
+
 - url: /.*
   script: miniproject.app
+
 
 libraries:
 - name: webapp2

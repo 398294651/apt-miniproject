@@ -1,0 +1,36 @@
+{% extends "_manage_base.html" %}
+{% block content %}
+
+<h2>Top 3 trending streams</h2>
+
+
+<table id="streams">
+  <tr>
+    {% for stream in streams %}
+        <td>
+          <a href="/viewstream?stream_id={{ stream['stream_id'] }}&user_id={{ user_id }}">
+              {% if stream['cover_url'] %}
+                <img src="{{ stream['cover_url'] }}"></img>
+              {% endif %}
+          </a>
+          <h3>{{ stream['stream_id'] }}</h3>
+          {% if stream['views']|length %}
+            {{stream['views']|length}} views in past hour
+          {% endif %}
+        </td>
+    {% endfor %}
+    <td>
+      <form action="/trending" method="post">
+        <input type="radio" name="rate" value="0" {{ checked[0] }}>No reports<br>
+        <input type="radio" name="rate" value="5" {{ checked[1] }}>Every 5 minutes<br>
+        <input type="radio" name="rate" value="60"{{ checked[2] }}>Every 1 hour<br>
+        <input type="radio" name="rate" value="1440" {{ checked[3] }}>Every day<br>
+        <p>
+          <input type="submit" value="Update Rate">
+        </p>
+      </form>
+    </td>
+  </tr>
+</table>
+
+{% endblock %}

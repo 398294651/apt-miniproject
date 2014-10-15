@@ -1,0 +1,25 @@
+{% extends "_manage_base.html" %}
+{% block content %}
+
+<p>
+<table id="streams">
+  <tr>
+    {% for stream in streams %}
+        {% if loop.index is divisibleby(4) %}
+            </tr>
+            <tr>
+        {% endif %}
+        <td>
+          <a href="/viewstream?stream_id={{ stream['stream_id'] }}&user_id={{ user_id }}">
+          {% if stream['cover_url'] %}
+            <p><img src="{{ stream['cover_url'] }}"></img></p>
+          {% endif %}
+          <p><h3>{{ stream['stream_id'] }}</h3></p>
+          </a>
+        </td>
+    {% endfor %}
+  </tr>
+</table>
+</p>
+
+{% endblock %}

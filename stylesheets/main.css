@@ -3,3 +3,6 @@ body {
   background-color: #DDDDDD;
 }
 
+#error {
+    color : red;
+}

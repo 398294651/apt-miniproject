@@ -1,6 +1,7 @@
 {% extends "_manage_base.html" %}
 {% block content %}
     <form action="create" method="post">
+      <input type="hidden" name="user_id" value="{{ user_id }}">
 
       <br>
       <input type="text" name="stream_id" required>

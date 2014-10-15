@@ -1,7 +1,7 @@
 {% extends "_manage_base.html" %}
 {% block content %}
 
-<form action="manage" method="post">    
+<form action="manage" method="post">
 
 <h2>Streams I own</h2>
 
@@ -15,15 +15,28 @@
 
   {% for row in user_streams %}
     <tr>
-      <td> <a href="/view?stream_id={{ row['stream_id'] }}">{{ row['stream_id'] }}</a> </td>
-      <td>{{ row["last_add"] }}</td>
-      <td>{{ row["views"] }}</td>
-      <td> <input type="checkbox" name="stream_id" value="{{ row['stream_id'] }}"> </td>
+      <td>
+        <a href="/viewstream?stream_id={{ row['stream_id'] }}">{{ row['stream_id'] }}</a>
+      </td>
+      <td>
+        {% if row['last_add'] %}
+            {{ row['last_add']|timesince }}
+        {% else %}
+            -
+        {% endif %}
+      </td>
+      <td>
+        {{ row['views']|length }}
+      </td>
+      <td>
+        <input type="checkbox" name="stream_id" value="{{ row['stream_id'] }}">
+      </td>
     </tr>
   {% endfor %}
 </table>
 
 <input type="submit" name="delete" value="Delete Checked">
+<input type="hidden" name="user_id" value="{{ user_id }}">
 </form>
 
 <form action="manage" method="post">
@@ -38,8 +51,9 @@
 
   {% for row in subscribed_streams %}
     <tr>
-      <td> <a href="/view?stream_id={{ row['stream_id'] }}">{{ row['stream_id'] }}</a> </td>
-      <td>{{ row["last_add"] }}</td>
+      <td>
+        <a href="/viewstream?stream_id={{ row['stream_id'] }}">{{ row['stream_id'] }}</a>       </td>
+      <td>{{ row['last_add'] }}<td>
       <td>{{ row["views"] }}</td>
       <td> <input type="checkbox" name="stream_id" value="{{ row['stream_id'] }}"> </td>
     </tr>
@@ -47,6 +61,7 @@
 </table>
 
 <input type="submit" name="unsubscribe" value="Unsubscribe Checked Streams">
+<input type="hidden" name="user_id" value="{{ user_id }}">
 </form>
 
 

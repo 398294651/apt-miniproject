@@ -11,24 +11,15 @@
 
     <h2>Share the world!</h2>
 
-    <!-- {% for greeting in greetings %} -->
-    <!--   {% if greeting.author %} -->
-    <!--     <b>{{ greeting.author.nickname() }}</b> wrote: -->
-    <!--   {% else %} -->
-    <!--    An anonymous person wrote: -->
-    <!--   {% endif %} -->
-    <!--   <blockquote>{{ greeting.content }}</blockquote> -->
-    <!-- {% endfor %} -->
+    <!-- <h3 id="error">{{ error_text }}</h3> -->
 
-    <!-- <form action="login" method="post"> -->
-    <!--   <input type="text" value="{{ user_id }}" name="user_id"> -->
-    <!--   <br> -->
-    <!--   <input type="password" name="password"> -->
-    <!--   <br> -->
-    <!--   <input type="submit" value="Login"> -->
-    <!-- </form> -->
-
-    <a href="{{ url }}">{{ url_text }}</a>
+    <form action="login" method="post">
+      <input type="text" value="{{ user_id }}" name="user_id" required>
+      <br>
+      <input type="password" name="user_pw" required>
+      <br>
+      <input type="submit" name="login" value="Login">
+    </form>
 
   </body>
 </html>

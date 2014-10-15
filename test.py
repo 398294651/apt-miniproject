@@ -50,32 +50,35 @@ def test1():
 
     helper = lambda kwargs: send_request('/services',kwargs)
 
-    print
-    print "Create users"
-    print
-    print helper({'service':'create_user','user_id':'tgar'})
-    print helper({'service':'create_user','user_id':'tgar2'})
+    try:
+        print
+        print "Create users"
+        print
+        print helper({'service':'create_user','user_id':'tgar'})
+        print helper({'service':'create_user','user_id':'tgar2'})
 
-    print
-    print "Create streams"
-    print helper({'service':'create_stream','user_id':'tgar2','stream_id':'meow','tags':['#catdance','#buddymovies']})
-    print helper({'service':'create_stream','user_id':'tgar2','stream_id':'meow2','tags':['#buddymovies']})
+        print
+        print "Create streams"
+        print helper({'service':'create_stream','user_id':'tgar2','stream_id':'meow','tags':['#catdance','#buddymovies']})
+        print helper({'service':'create_stream','user_id':'tgar2','stream_id':'meow2','tags':['#buddymovies']})
 
-    print
-    print "Subscribe"
-    print helper({'service':'subscribe','user_id':'tgar','streams':['meow']})
+        print
+        print "Subscribe"
+        print helper({'service':'subscribe','user_id':'tgar','streams':['meow']})
 
-    print
-    print "Delete stream and check if they've been removed"
-    print helper({'service':'delete_streams','streams':['meow']})
-    print helper({'service':'view_stream','stream_id':'meow'})
-    print helper({'service':'get_streams','user_id':'tgar'})
-    print helper({'service':'get_streams','user_id':'tgar2'})
+        print
+        print "Delete stream and check if they've been removed"
+        print helper({'service':'delete_streams','streams':['meow']})
+        print helper({'service':'view_stream','stream_id':'meow'})
+        print helper({'service':'get_streams','user_id':'tgar'})
+        print helper({'service':'get_streams','user_id':'tgar2'})
 
-    print
-    print helper({'service':'delete_streams','streams':['meow2']})
-    print helper({'service':'delete_user','user_id':'tgar'})
-    print helper({'service':'delete_user','user_id':'tgar2'})
+        print
+        print helper({'service':'delete_streams','streams':['meow2']})
+        print helper({'service':'delete_user','user_id':'tgar'})
+        print helper({'service':'delete_user','user_id':'tgar2'})
+    except Exception as e:
+        print e
 
 
 if __name__ == '__main__':
