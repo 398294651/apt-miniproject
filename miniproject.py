@@ -42,9 +42,9 @@ NAV_LINKS = sorted(('Create', 'View', 'Search', 'Trending', 'Manage'))
 NAV_LINKS = OrderedDict(zip(NAV_LINKS, map(lambda x: '/'+x.lower(), NAV_LINKS) ))
 USER_NAV_LINKS = NAV_LINKS.copy()
 
-SERVICES_URL = 'http://localhost:8080'
+# SERVICES_URL = 'http://localhost:8080'
 TIME_FMT = "%Y-%m-%d %H:%M:%S.%f"
-# SERVICES_URL = 'http://apt-miniproject-fall14.appspot.com/'
+SERVICES_URL = 'http://apt-miniproject-fall14.appspot.com/'
 
 
 def format_timesince(value,fmt=TIME_FMT):
