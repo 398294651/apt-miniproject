@@ -1,15 +1,17 @@
 <!DOCTYPE html>
 {% autoescape true %}
 <html>
-  <body>
-    <head>
-      <link type="text/css" rel="stylesheet" href="/stylesheets/main.css" />
-      <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
-      <script src="//ajax.googleapis.com/ajax/libs/jqueryui/1.11.1/jquery-ui.min.js"></script>
-      <script type="text/javascript" src="/scripts/create.js"></script>
-      <title>Connexus</title>
-    </head>
+  <head>
+    {% block head %}
+    <meta charset="utf-8">
+    <title>Connexus</title>
 
+    <link type="text/css" rel="stylesheet" href="/css/main.css" />
+    <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css">
+    {% endblock %}
+  </head>
+  <body>
+    
     <h1>Connex.us</h1>
 
     {% for link in nav_links %}
@@ -22,7 +24,8 @@
 
     {% endfor %}
 
-    {% block content %}{% endblock %}
+    {% block content %}
+    {% endblock %}
 
   </body>
 </html>

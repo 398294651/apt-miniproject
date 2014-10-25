@@ -15,6 +15,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
+# SERVICES_URL = 'http://localhost:8080'
+SERVICES_URL = 'http://apt-miniproject-fall14.appspot.com/'
+
 import os, re
 import logging
 from datetime import datetime, timedelta
@@ -29,9 +33,12 @@ from google.appengine.api import users as gusers
 from google.appengine.ext import ndb
 from google.appengine.api import mail as gmail
 from google.appengine.ext import blobstore
+from google.appengine.api import search
 
 from services import *
 from models import Stream, User
+
+
 
 JINJA_ENVIRONMENT = jinja2.Environment(
     loader=jinja2.FileSystemLoader('templates'),
@@ -41,20 +48,16 @@ JINJA_ENVIRONMENT = jinja2.Environment(
 NAV_LINKS = sorted(('Create', 'View', 'Search', 'Trending', 'Manage'))
 NAV_LINKS = OrderedDict(zip(NAV_LINKS, map(lambda x: '/'+x.lower(), NAV_LINKS) ))
 USER_NAV_LINKS = NAV_LINKS.copy()
-
-# SERVICES_URL = 'http://localhost:8080'
 TIME_FMT = "%Y-%m-%d %H:%M:%S.%f"
-SERVICES_URL = 'http://apt-miniproject-fall14.appspot.com/'
+logging.getLogger().setLevel(logging.DEBUG)
 
 
 def format_timesince(value,fmt=TIME_FMT):
     tl = datetime.now() - datetime.strptime(value,fmt)
     hours, remainder = divmod(tl.seconds, 3600)
     minutes, seconds = divmod(remainder, 60)
-    return "{0:02d}:{1:02d}:{2:02d}".format(hours,minutes,seconds)
-
+    return "{0:02d} hour {1:02d} minutes {2:02d} seconds".format(hours,minutes,seconds)
 JINJA_ENVIRONMENT.filters['timesince'] = format_timesince
-logging.getLogger().setLevel(logging.DEBUG)
 
 
 class HTTPRequestHandler(webapp2.RequestHandler):
@@ -62,7 +65,6 @@ class HTTPRequestHandler(webapp2.RequestHandler):
     def callService(category,service,**params):
         result = urlfetch.fetch('/'.join((SERVICES_URL,'svc',category,service))
                                 , payload=json.dumps(params), method=urlfetch.POST)
-
         jresult = json.loads(result.content)
 
         status = {}
@@ -82,12 +84,14 @@ class HTTPRequestHandler(webapp2.RequestHandler):
         template = JINJA_ENVIRONMENT.get_template(src)
         self.response.write(template.render(form))
 
+    def search(self,query):
+        return search.Index(INDEX_NAME).search(query)
+
     def redirect(self,url,params=None):
         params = ('?'+urllib.urlencode(params)) if params else ''
-        url += params
-        super(HTTPRequestHandler,self).redirect(url)
+        super(HTTPRequestHandler,self).redirect(url+params)
 
-    def sendEmail(self, user_id, msg, to_list):
+    def sendEmail(self, user_id, stream_id, msg, to_list):
         message = gmail.EmailMessage()
         message.sender = "toemossgarcia@gmail.com"
         message.to = to_list
@@ -95,12 +99,12 @@ class HTTPRequestHandler(webapp2.RequestHandler):
         message.body = msg
         message.body += """
       
-    # To accept this invitation, click the following link,
-    # or copy and paste the URL into your browser's address
-    # bar:
+# To accept this invitation, click the following link,
+# or copy and paste the URL into your browser's address
+# bar:
 
-    # %s
-    #         """ % "www.google.com"
+# %s\
+""" % (SERVICES_URL+'/view/stream_id?stream_id='+stream_id)
 
         message.send()
 
@@ -132,6 +136,7 @@ class LoginHandler(HTTPRequestHandler):
             USER_NAV_LINKS[key] = link+'?'+urllib.urlencode({'user_id':user.user_id})
 
         self.redirect('/manage',{'user_id':user.user_id})
+
 
 # Options for dealing with mobile+browser clients:
 #       pass in a function for rendering
@@ -194,7 +199,7 @@ class CreateHandler(HTTPRequestHandler):
         # Send invitation e-mails out
         msg = self.request.get('message')
         if form['subscribers']:
-            self.sendEmail(form['user_id'],msg,form['subscribers'])
+            self.sendEmail(form['user_id'],form['stream_id'],msg,form['subscribers'])
 
         # We're done with you
         self.redirect('/manage',{'user_id':form['user_id']})
@@ -233,7 +238,7 @@ class TrendingHandler(HTTPRequestHandler):
         template_values['checked'] = None
         checked = [""] * 4
         if result['rate']:
-            if rate == "0":         idx = 0
+            if rate   == "0":       idx = 0
             elif rate == "5":       idx = 1
             elif rate == "60":      idx = 2        
             elif rate == "1440":    idx = 3
@@ -251,6 +256,30 @@ class TrendingHandler(HTTPRequestHandler):
         if 'error' in status: return self.redirect('/error',status)
 
         self.redirect('/trending',{'user_id':self.request.get('user_id')})
+
+
+class SearchHandler(HTTPRequestHandler):
+    def get(self):
+        template_values = {}
+        template_values['nav_links'] = USER_NAV_LINKS
+        template_values['path'] = os.path.basename(self.request.path).capitalize()
+        template_values['user_id'] = self.request.get('user_id')        
+
+        results = []
+        if self.request.get('qu'):
+            for stream in self.search(search.Query(
+                    query_string = self.request.get('qu')
+                    limit = 5)):
+                results.append({'stream_id':stream.doc_id
+                                ,'cover_url':stream.fields[0].value})
+            template_values.update({'query_results': results
+                                    ,'query': self.request.get('qu')})
+
+        self.render('search.html',**template_values)
+            
+    def post(self):
+        self.redirect('/search',{'qu':self.request.get('query')
+                                 ,'user_id':self.request.get('user_id')})
 
 
 class ViewHandler(HTTPRequestHandler):
@@ -312,6 +341,7 @@ app = webapp2.WSGIApplication([
     ,('/view', ViewAllHandler)
     ,('/create', CreateHandler)
     ,('/error',ErrorHandler)
+    ,('/search', SearchHandler)
     ,('/trending',TrendingHandler)
     ,('/svc/img/upload',UploadHandler)
     ,('/svc/img/serve',ServeHandler)

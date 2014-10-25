@@ -4,12 +4,18 @@ runtime: python27
 api_version: 1
 threadsafe: yes
 
-handlers:
-- url: /stylesheets
-  static_dir: stylesheets
+builtins:
+- deferred: on
 
-- url: /scripts
-  static_dir: scripts  
+handlers:
+- url: /img
+  static_dir: img
+
+- url: /css
+  static_dir: css
+
+- url: /js
+  static_dir: js
 
 - url: /.*
   script: miniproject.app

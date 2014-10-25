@@ -1,5 +1,5 @@
 import json
-import os
+import os,re
 import logging
 import urllib
 import itertools
@@ -8,11 +8,28 @@ from datetime import datetime
 
 import webapp2
 from google.appengine.ext.webapp import blobstore_handlers
-from google.appengine.ext import blobstore
+from google.appengine.ext import blobstore, deferred
+from google.appengine.api import files, images
+from google.appengine.api import search
 
 from models import Stream, User, Image
-REPORT_RATE_MINS = "0"
-REPORT_LAST = None
+
+REPORT_RATE_MINS      = "0"
+REPORT_LAST           = None
+
+MIN_FILE_SIZE         = 1  # bytes
+MAX_FILE_SIZE         = 5000000  # bytes
+IMAGE_TYPES           = re.compile('image/(gif|p?jpeg|(x-)?png)')
+ACCEPT_FILE_TYPES     = IMAGE_TYPES
+THUMBNAIL_MODIFICATOR = '=s80'  # max width / height
+EXPIRATION_TIME       = 300  # seconds
+
+INDEX_NAME            = "IDX"
+
+
+def cleanup(blob_keys):
+    blobstore.delete(blob_keys)
+
 
 class ServiceHandler(webapp2.RequestHandler):
   def respond(self,**response):
@@ -34,21 +51,114 @@ class ServeHandler(blobstore_handlers.BlobstoreDownloadHandler):
 
 
 class UploadHandler(blobstore_handlers.BlobstoreUploadHandler):
-  def post(self):
-    upload = self.get_uploads('filename')[0]
+  def initialize(self, request, response):
+    super(UploadHandler, self).initialize(request, response)
+    self.response.headers['Access-Control-Allow-Origin'] = '*'
+    self.response.headers[
+      'Access-Control-Allow-Methods'
+    ] = 'OPTIONS, HEAD, GET, POST, PUT, DELETE'
+    self.response.headers[
+      'Access-Control-Allow-Headers'
+    ] = 'Content-Type, Content-Range, Content-Disposition'
+
+  def validate(self, file):
+    if file['size'] < MIN_FILE_SIZE:
+        file['error'] = 'File is too small'
+    elif file['size'] > MAX_FILE_SIZE:
+        file['error'] = 'File is too big'
+    # elif not ACCEPT_FILE_TYPES.match(file['type']):
+    #     file['error'] = 'Filetype not allowed'
+    else:
+        return True
+    return False
+
+  def get_file_size(self, file):
+    file.seek(0, 2)  # Seek to the end of the file
+    size = file.tell()  # Get the position of EOF
+    file.seek(0)  # Reset the file position to the beginning
+    return size
+
+  def write_blob(self, data, info):
+    blob = files.blobstore.create(mime_type=info['type'],
+                                  _blobinfo_uploaded_filename=info['name'])
+    with files.open(blob, 'a') as f:
+        f.write(data)
+    files.finalize(blob)
+
+    print blob
 
     user_photo = Image(stream_id=self.request.get('stream_id')
                        ,image_id=self.request.get('image_id')
-                       ,blob_key=upload.key())
+                       ,blob_key=files.blobstore.get_blob_key(blob))
 
     stream = Stream.getStream(self.request.get('stream_id'))
     if stream:
       logging.debug("Adding image at %s (%r)" % (user_photo.create_date,str(user_photo.blob_key)))
       stream.addImage(user_photo)
 
-    self.redirect('/viewstream?'+urllib.urlencode({'stream_id':self.request.get('stream_id')
-                                                   ,'user_id':self.request.get('user_id')}))
+    return files.blobstore.get_blob_key(blob)
 
+  def post(self):
+    result = {'files': self.handle_upload()}
+
+    # redirect = self.request.get('redirect')
+    # if redirect:
+    #     return self.redirect(redirect)
+    # self.redirect('/viewstream?'+urllib.urlencode({'stream_id':self.request.get('stream_id')
+    #                                                ,'user_id':self.request.get('user_id')}))
+    if 'application/json' in self.request.headers.get('Accept'):
+        self.response.headers['Content-Type'] = 'application/json'
+
+    self.response.write(json.dumps(result, separators=(',', ':')))
+
+
+  def handle_upload(self):
+    results = []
+    blob_keys = []
+    for name, fieldStorage in self.request.POST.items():
+        if type(fieldStorage) is unicode:
+            continue
+        result = {}
+        result['name'] = re.sub(r'^.*\\','',fieldStorage.filename)
+        result['type'] = fieldStorage.type
+        result['size'] = self.get_file_size(fieldStorage.file)
+        if self.validate(result):
+            blob_key = str(self.write_blob(fieldStorage.value, result))
+            blob_keys.append(blob_key)
+            result['deleteType'] = 'DELETE'
+            result['deleteUrl'] = self.request.host_url +\
+                '/?key=' + urllib.quote(blob_key, '')
+            if (IMAGE_TYPES.match(result['type'])):
+                try:
+                    result['url'] = images.get_serving_url(
+                        blob_key,
+                        secure_url=self.request.host_url.startswith(
+                            'https'
+                        )
+                    )
+                    result['thumbnailUrl'] = result['url'] +\
+                        THUMBNAIL_MODIFICATOR
+                except:  # Could not get an image serving url
+                    pass
+            if not 'url' in result:
+                result['url'] = self.request.host_url +\
+                    '/' + blob_key + '/' + urllib.quote(
+                        result['name'].encode('utf-8'), '')
+        results.append(result)
+    deferred.defer(cleanup,blob_keys,_countdown=EXPIRATION_TIME)
+    return results
+
+  def delete(self):
+    key = self.request.get('key') or ''
+    if key:
+      img = Image.getImage(key)
+      Stream.getStream(img.stream_id).removeImage(img.image_id)
+    blobstore.delete(key)
+    s = json.dumps({key: True}, separators=(',', ':'))
+    if 'application/json' in self.request.headers.get('Accept'):
+      self.response.headers['Content-Type'] = 'application/json'
+    self.response.write(s)
+    
 
 class SubscribeStreamsHandler(ServiceHandler):
     def post(self):
@@ -203,6 +313,16 @@ class CreateStreamHandler(ServiceHandler):
 
         # Update the user's stream list and insert stream into db
         user.addStream(new_stream)
+
+        d = search.Document(
+            doc_id   = form['stream_id']
+            ,fields   = [search.TextField(name='stream_id', value=form['stream_id'])
+                         ,search.HtmlField(name='cover_url', value=form['cover_url'])]
+            ,language = 'en')
+        try:
+            search.Index(name=INDEX_NAME).put(d)
+        except search.Error as e:
+            self.respond(error=str(e))
 
         self.respond(status="Created stream %(stream_id)r for user %(user_id)r." % form)
         

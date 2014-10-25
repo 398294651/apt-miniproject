@@ -166,7 +166,7 @@ class User(ndb.Model):
     def delete(self):
         # delete each stream user created
         for stream in Stream.query(Stream.user_id == self.user_id):
-            stream.delete(sid)
+            stream.delete()
 
         # delete the user
         self.key.delete()

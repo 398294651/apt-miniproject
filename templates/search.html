@@ -1,0 +1,23 @@
+{% extends "_manage_base.html" %}
+
+{% block content %}
+    <form action="/search" method="post">
+        <input type="text" name="query">
+        <input type="submit" value="Search">
+        <input type="hidden" name="user_id" value="{{ user_id }}">
+    </form>
+
+    {% if query_results %}
+      {{ query_results|length }} results for {{ query }}
+
+      {% for row in query_results %}
+          <a href="/viewstream?stream_id={{ row['stream_id'] }}&user_id={{ user_id }}">
+          {% if row['cover_url'] %}
+            <p><img src="{{ row['cover_url'] }}"></img></p>
+          {% endif %}
+          <p><h3>{{ row['stream_id'] }}</h3></p>
+          </a>
+      {% endfor %}
+      
+    {% endif %}
+{% endblock %}

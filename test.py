@@ -22,12 +22,12 @@ import urllib
 #print opener.open("http://localhost:8080/").read()
 #
 globals = {
-           "server": "localhost",
-           "port"  : "8080",
-           # prepare request header
-           "headers": {"Content-type": "application/json", "Accept": "text/plain"},
-           "userId": "TODO"
-          }
+    "server": "localhost"
+    ,"port"  : "8080"
+    # "server": "apt-miniproject-fall14.appspot.com"
+    # ,"port": None
+    # prepare request header
+    ,"headers": {"Content-type": "application/json"}}
 
 
 def send_request(url, req):
