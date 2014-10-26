@@ -27,7 +27,7 @@ globals = {
     # "server": "apt-miniproject-fall14.appspot.com"
     # ,"port": None
     # prepare request header
-    ,"headers": {"Content-type": "application/json"}}
+    ,"headers": {"Accept": "application/json"}}
 
 
 def send_request(url, req):
@@ -35,7 +35,7 @@ def send_request(url, req):
 
     print "json request:", json.dumps(req)
 
-    conn.request("POST", url, json.dumps(req), {'headers':globals["headers"]})
+    conn.request("POST", url, json.dumps(req), headers=globals["headers"])
     resp = conn.getresponse()
 
     print "status:", resp.status, resp.reason

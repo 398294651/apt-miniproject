@@ -18,7 +18,7 @@ $(function () {
     $('#fileupload').fileupload({
         // Uncomment the following to send cross-domain cookies:
         //xhrFields: {withCredentials: true},
-        url: 'index.html'
+        // url: '//apt-miniproject-fall14.appspot.com/'
     });
 
     // Enable iframe cross-domain access via redirect option:
@@ -34,7 +34,7 @@ $(function () {
     if (window.location.hostname === 'blueimp.github.io') {
         // Demo settings:
         $('#fileupload').fileupload('option', {
-            url: '//apt-miniproject-fall14.appspot.com/',
+            // url: '//apt-miniproject-fall14.appspot.com/',
             // Enable image resizing, except for Android and Opera,
             // which actually support image resizing, but fail to
             // send Blob objects via XHR requests:
@@ -44,17 +44,17 @@ $(function () {
             acceptFileTypes: /(\.|\/)(gif|jpe?g|png)$/i
         });
         // Upload server status check for browsers with CORS support:
-        if ($.support.cors) {
-            $.ajax({
-                url: '//apt-miniproject-fall14.appspot.com/',
-                type: 'HEAD'
-            }).fail(function () {
-                $('<div class="alert alert-danger"/>')
-                    .text('Upload server currently unavailable - ' +
-                            new Date())
-                    .appendTo('#fileupload');
-            });
-        }
+        // if ($.support.cors) {
+        //     $.ajax({
+        //         url: '//apt-miniproject-fall14.appspot.com/',
+        //         type: 'HEAD'
+        //     }).fail(function () {
+        //         $('<div class="alert alert-danger"/>')
+        //             .text('Upload server currently unavailable - ' +
+        //                     new Date())
+        //             .appendTo('#fileupload');
+        //     });
+        // }
     } else {
         // Load existing files:
         $('#fileupload').addClass('fileupload-processing');

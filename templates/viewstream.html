@@ -1,14 +1,10 @@
 {% extends "_manage_base.html" %}
 {% block head %}
-    <!-- Bootstrap styles -->
-    <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css">
-    <!-- Generic page styles -->
-    {# <link rel="stylesheet" href="css/style.css"> #}
     <!-- blueimp Gallery styles -->
     <link rel="stylesheet" href="//blueimp.github.io/Gallery/css/blueimp-gallery.min.css">
     <!-- CSS to style the file input field as button and adjust the Bootstrap progress bars -->
     <link rel="stylesheet" href="css/jquery.fileupload.css">
-    <link rel="stylesheet" href="css/jquery.fileupload-ui.css">  
+    <link rel="stylesheet" href="css/jquery.fileupload-ui.css">
 {% endblock %}
 
 {% block content %}
@@ -29,7 +25,8 @@
 <input type="hidden" name="page_range" value="{{ page_range }}"> 
 </form> 
 
-<form id="fileupload" action="{{ upload_url }}" method="POST" enctype="multipart/form-data" data-url="{{ upload_url }}">
+<form id="fileupload" action="{{ upload_url }}" method="GET" enctype="multipart/form-data"
+      data-url="{{ upload_url }}" >
     <!-- The fileupload-buttonbar contains buttons to add/delete files and start/cancel the upload -->
     <div class="row fileupload-buttonbar">
         <div class="col-lg-7">
@@ -160,19 +157,13 @@
     </tr>
 {% } %}
 </script>
-{% endraw %}
 
-<script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
-<!-- The jQuery UI widget factory, can be omitted if jQuery UI is already included -->
-<script src="js/vendor/jquery.ui.widget.js"></script>
 <!-- The Templates plugin is included to render the upload/download listings -->
 <script src="//blueimp.github.io/JavaScript-Templates/js/tmpl.min.js"></script>
 <!-- The Load Image plugin is included for the preview images and image resizing functionality -->
 <script src="//blueimp.github.io/JavaScript-Load-Image/js/load-image.all.min.js"></script>
 <!-- The Canvas to Blob plugin is included for image resizing functionality -->
 <script src="//blueimp.github.io/JavaScript-Canvas-to-Blob/js/canvas-to-blob.min.js"></script>
-<!-- Bootstrap JS is not required, but included for the responsive demo navigation -->
-<script src="//netdna.bootstrapcdn.com/bootstrap/3.2.0/js/bootstrap.min.js"></script>
 <!-- blueimp Gallery script -->
 <script src="//blueimp.github.io/Gallery/js/jquery.blueimp-gallery.min.js"></script>
 
@@ -194,27 +185,7 @@
 <!-- The main application script -->
 <script src="js/main.js"></script>
 
-{# <form action="{{ upload_url }}" method="post" enctype="multipart/form-data">   #}
-{#   <table> #}
-{#     <p> #}
-{#     <tr> #}
-{#       <td><input type="file" name="filename" size="40" required></td> #}
-{#       <td><input type="text" name="image_id" size="30" required></td> #}
-{#     </tr> #}
-{#     </p> #}
-
-{#     <p> #}
-{#     <tr> #}
-{#       <br> #}
-{#       <td><input type="submit" name="upload" value="Upload file"></td> #}
-{#       <td><h1>Add an Image</h1></td> #}
-{#     </tr> #}
-{#     </p> #}
-{#   </table> #}
-{#   <br> #}
-{# <input type="hidden" name="stream_id" value="{{ stream_id }}"> #}
-{# <input type="hidden" name="user_id" value="{{ user_id }}"> #}
-{# </form> #}
+{% endraw %}
 
 
 <form action="/viewstream?stream_id={{ stream_id }}" method="post">

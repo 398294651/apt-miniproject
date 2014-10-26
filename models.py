@@ -1,6 +1,8 @@
 from google.appengine.ext import blobstore
 from google.appengine.ext import ndb
+from google.appengine.api import search
 from datetime import datetime,timedelta
+import services
 import urllib
 
 
@@ -17,7 +19,7 @@ class Image(ndb.Model):
 
     def delete(self):
         blob_info = blobstore.BlobInfo.get(self.blob_key)
-        blob_info.delete()
+        if blob_info: blob_info.delete()
         self.key.delete()
 
     @classmethod
@@ -152,7 +154,20 @@ class User(ndb.Model):
             return
         # Update the user's stream list
         self.user_streams.insert(0,stream.stream_id)
+
         stream.put() # only place where a stream should be created in the db
+
+        d = search.Document(
+            doc_id   = stream.stream_id
+            ,fields   = [search.TextField(name='stream_id', value=stream.stream_id)]
+                         # ,search.HtmlField(name='subscribers', value=",".join(stream.subscribers))
+                         # ,search.TextField(name='tags', value=",".join(stream.tags))]
+            ,language = 'en')
+        try:
+            search.Index(name=services.INDEX_NAME).put(d)
+        except search.Error as e:
+            raise
+
         self.put()
 
     def removeStream(self,stream_id):
@@ -161,6 +176,12 @@ class User(ndb.Model):
 
         stream = Stream.getStream(stream_id)        
         if stream: stream.delete()
+
+        doc_index = search.Index(name=INDEX_NAME)
+        document_ids = [document.doc_id
+                        for document in doc_index.get_range(ids_only=True)]
+        if document_ids: doc_index.delete(document_ids)
+
         self.put()
 
     def delete(self):

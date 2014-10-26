@@ -1,23 +1,52 @@
 {% extends "_manage_base.html" %}
 
+{% block head %}
+  <script>
+    $(function() {
+        var cache = {{ cache }};
+        $( "#query" ).autocomplete({
+            minLength: 2
+            ,source: function( request, response ) {
+                var term = request.term;
+                if ( term in cache ) {
+                    response( cache[ term ] );
+                    return;
+                }
+
+                $.post("/svc/search", request, function( data, status, xhr ) {
+                    cache[ term ] = data.matches;
+                    response( data.matches );
+                },"json");
+            }
+        });
+    });
+  </script>
+{% endblock %}
+
 {% block content %}
-    <form action="/search" method="post">
-        <input type="text" name="query">
-        <input type="submit" value="Search">
-        <input type="hidden" name="user_id" value="{{ user_id }}">
-    </form>
+  <p>
+  <form class="form-inline" role="form" action="/search" method="post">
+      <input type="text" class="form-control" name="query" id="query" value="{{ query }}">
+      <button class="btn btn-default" type="submit">Search</button>
+      <input type="hidden" name="user_id" value="{{ user_id }}">
+  </form>
+  </p>
 
-    {% if query_results %}
-      {{ query_results|length }} results for {{ query }}
+  {% if query_results is defined %}
+    {{ query_results|length }} results for <b>{{ query }}</b>
 
-      {% for row in query_results %}
-          <a href="/viewstream?stream_id={{ row['stream_id'] }}&user_id={{ user_id }}">
-          {% if row['cover_url'] %}
-            <p><img src="{{ row['cover_url'] }}"></img></p>
-          {% endif %}
-          <p><h3>{{ row['stream_id'] }}</h3></p>
-          </a>
-      {% endfor %}
-      
-    {% endif %}
+    <p>
+    {% for row in query_results %}
+      <p>
+      <a href="/viewstream?stream_id={{ row['stream_id'] }}">
+        {% if row['cover_url'] %}
+          <img src="{{ row['cover_url'] }}"></img>
+        {% endif %}
+        <h3>{{ row['stream_id'] }}</h3>
+      </a>
+      </p>
+    {% endfor %}
+    </p>
+  {% endif %}
+  
 {% endblock %}

@@ -1,30 +1,47 @@
 {% extends "_manage_base.html" %}
 {% block content %}
-    <form action="create" method="post">
+    <form class="form-horizontal" role="form" action="create" method="post">
       <input type="hidden" name="user_id" value="{{ user_id }}">
 
-      <br>
-      <input type="text" name="stream_id" required>
+       <div class="form-group">
+       <label for="stream_id" class="col-sm-2 control-label">Stream Name</label>
+       <div class="col-sm-10">
+       <input type="text" id="stream_id" name="stream_id" required>
+       </div>
+       </div>       
 
-      <br>
-      <h2>Name your stream</h2>
-      <br>
-      
-      <input type="textarea" name="subscribers">
-      <br>
-      <input type="textarea" name="message" value="Join my stream!">
+      <div class="form-group">
+        <label for="subs" class="col-sm-2 control-label">Add subscribers</label>
+        <div class="col-sm-10">
+          <input type="textarea" id="subs" name="subscribers" rows="2">
+        </div>
+      </div>
 
-      <h2>Add subscribers</h2>
+      <div class="form-group">      
+        <label for="msg" class="col-sm-2 control-label">Invite Message</label>
+        <div class="col-sm-10">      
+          <input type="textarea" name="message" id="msg" placeholder="Join my stream!" rows="3">
+        </div>
+      </div>
 
-      <input type="textarea" name="tags">
+      <div class="form-group">
+        <label for="tags" class="col-sm-2 control-label">Tag your stream</label>
+        <div class="col-sm-10">
+          <input type="textarea" id="tags" name="tags" rows="3">
+        </div>        
+      </div>
 
-      <h2>Tag your stream</h2>
+      <div class="form-group">
+        <label for="cover_url" class="col-sm-2 control-label">URL to cover image (optional)</label><br/>
+        <div class="col-sm-10">        
+          <input type="text" id="cover_url" name="cover_url">
+        </div>
+      </div>      
 
-      <input type="text" name="cover_url">
-
-      <h2>URL to cover image (optional)</h2>
-
-      <input type="submit" value="Create Stream">
-
+      <div class="form-group">
+        <div class="col-sm-10">      
+          <button class="btn btn-default" type="submit">Create Stream</button>
+        </div>
+      </div>
     </form>
 {% endblock %}

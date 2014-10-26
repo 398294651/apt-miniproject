@@ -39,6 +39,7 @@ from services import *
 from models import Stream, User
 
 
+LOCAL_CACHE = {}
 
 JINJA_ENVIRONMENT = jinja2.Environment(
     loader=jinja2.FileSystemLoader('templates'),
@@ -61,10 +62,11 @@ JINJA_ENVIRONMENT.filters['timesince'] = format_timesince
 
 
 class HTTPRequestHandler(webapp2.RequestHandler):
-    @staticmethod
-    def callService(category,service,**params):
-        result = urlfetch.fetch('/'.join((SERVICES_URL,'svc',category,service))
-                                , payload=json.dumps(params), method=urlfetch.POST)
+    def callService(self,service,subservice='',**params):
+        result = urlfetch.fetch('/'.join([SERVICES_URL,'svc',service]
+                                         +([subservice] if subservice else []))
+                                , payload=json.dumps(params), method=urlfetch.POST
+                                , headers={'Accept':'application/json'})
         jresult = json.loads(result.content)
 
         status = {}
@@ -78,14 +80,13 @@ class HTTPRequestHandler(webapp2.RequestHandler):
         else:
             status['status'] = "HTTP %d" % result.status_code
 
+        if 'error' in status: return self.redirect('/error',status)
+
         return status, jresult
 
     def render(self,src,**form):
         template = JINJA_ENVIRONMENT.get_template(src)
         self.response.write(template.render(form))
-
-    def search(self,query):
-        return search.Index(INDEX_NAME).search(query)
 
     def redirect(self,url,params=None):
         params = ('?'+urllib.urlencode(params)) if params else ''
@@ -115,6 +116,10 @@ class ErrorHandler(HTTPRequestHandler):
         template_values['nav_links'] = USER_NAV_LINKS
         template_values['path'] = os.path.basename(self.request.path).capitalize()
         template_values['error'] = self.request.get('error')
+        msg = self.request.get('error')
+
+        if re.search("User [\'a-zA-Z]+ does not exist", msg):
+            return self.redirect('/login')
 
         self.render('error.html',**template_values)
 
@@ -135,7 +140,7 @@ class LoginHandler(HTTPRequestHandler):
         for key,link in NAV_LINKS.items():
             USER_NAV_LINKS[key] = link+'?'+urllib.urlencode({'user_id':user.user_id})
 
-        self.redirect('/manage',{'user_id':user.user_id})
+        return self.redirect('/manage',{'user_id':user.user_id})
 
 
 # Options for dealing with mobile+browser clients:
@@ -151,7 +156,6 @@ class ManageHandler(HTTPRequestHandler):
 
         # Get streams
         status, result = self.callService('stream','get',user_id=self.request.get('user_id'))
-        if 'error' in status: return self.redirect('/error',status)
 
         template_values['user_streams'] = result['user_streams']
         template_values['subscribed_streams'] = result['subscribed_streams']
@@ -162,10 +166,9 @@ class ManageHandler(HTTPRequestHandler):
         form = {'user_id': self.request.get('user_id')}
         form['streams'] = self.request.get_all('stream_id')
 
-        if self.request.get('delete'):      svc = 'del'
+        if self.request.get('delete'):      svc = 'rm'
         if self.request.get('unsubscribe'): svc = 'unsub'
         status, result = self.callService('stream',svc,**form)
-        if 'error' in status: return self.redirect('/error',status)
 
         return self.redirect('/manage',{'user_id':self.request.get('user_id')})
 
@@ -194,7 +197,6 @@ class CreateHandler(HTTPRequestHandler):
 
         # Request to create a new stream
         status, result = self.callService('stream','new',**form)
-        if 'error' in status: return self.redirect('/error',status)
 
         # Send invitation e-mails out
         msg = self.request.get('message')
@@ -202,7 +204,7 @@ class CreateHandler(HTTPRequestHandler):
             self.sendEmail(form['user_id'],form['stream_id'],msg,form['subscribers'])
 
         # We're done with you
-        self.redirect('/manage',{'user_id':form['user_id']})
+        return self.redirect('/manage',{'user_id':form['user_id']})
 
 
 class ViewAllHandler(HTTPRequestHandler):
@@ -213,7 +215,6 @@ class ViewAllHandler(HTTPRequestHandler):
         template_values['user_id'] = self.request.get('user_id')
         
         status, result = self.callService('stream','viewall')
-        if 'error' in status: return self.redirect('/error',status)
 
         template_values['streams'] = result['streams']
         self.render('viewall.html',**template_values)
@@ -227,12 +228,10 @@ class TrendingHandler(HTTPRequestHandler):
         template_values['user_id'] = self.request.get('user_id')
 
         status, result = self.callService('stream','viewall')
-        if 'error' in status: return self.redirect('/error',status)
         streams = sorted(result['streams'],key=lambda x: len(x['views']),reverse=True)[:3]
         template_values['streams'] = streams
 
         status, result = self.callService('report','getrate')
-        if 'error' in status: return self.redirect('/error',status)
 
         rate = result['rate']
         template_values['checked'] = None
@@ -253,33 +252,30 @@ class TrendingHandler(HTTPRequestHandler):
         rate = self.request.get('rate')
         # update cron job rate
         status, result = self.callService('report','setrate',rate=rate)
-        if 'error' in status: return self.redirect('/error',status)
 
-        self.redirect('/trending',{'user_id':self.request.get('user_id')})
+        return self.redirect('/trending',{'user_id':self.request.get('user_id')})
 
 
-class SearchHandler(HTTPRequestHandler):
+class SearchPageHandler(HTTPRequestHandler):
     def get(self):
         template_values = {}
         template_values['nav_links'] = USER_NAV_LINKS
         template_values['path'] = os.path.basename(self.request.path).capitalize()
-        template_values['user_id'] = self.request.get('user_id')        
-
-        results = []
+        template_values['user_id'] = self.request.get('user_id')
+        template_values['query'] = self.request.get('qu')
+        template_values['cache'] = LOCAL_CACHE
+        
         if self.request.get('qu'):
-            for stream in self.search(search.Query(
-                    query_string = self.request.get('qu')
-                    limit = 5)):
-                results.append({'stream_id':stream.doc_id
-                                ,'cover_url':stream.fields[0].value})
-            template_values.update({'query_results': results
-                                    ,'query': self.request.get('qu')})
+            status, result = self.callService('search',qu=self.request.get('qu'))
+            searchres = result['matches']
+            status, result = self.callService('stream','get',streams=searchres)
+            template_values['query_results'] = result['streams']
 
         self.render('search.html',**template_values)
             
     def post(self):
-        self.redirect('/search',{'qu':self.request.get('query')
-                                 ,'user_id':self.request.get('user_id')})
+        return self.redirect('/search',{'qu':self.request.get('query')
+                                        ,'user_id':self.request.get('user_id')})
 
 
 class ViewHandler(HTTPRequestHandler):
@@ -292,16 +288,16 @@ class ViewHandler(HTTPRequestHandler):
         stream_id = self.request.get('stream_id')
         page_range = self.request.get('page_range')
         if not page_range: page_range = '0,1,2'
-        if '/manage' in self.request.referer or '/trending' in self.request.referer:
+        if (self.request.referer and
+            ('/manage' in self.request.referer or '/trending' in self.request.referer)):
             status, result = self.callService('stream','addview',stream_id=stream_id)
-            if 'error' in status: return self.redirect('/error',status)
-
+            
         status, result = self.callService('stream','view'
                                           ,stream_id=stream_id,page_range=page_range)
-        if 'error' in status: return self.redirect('/error',status)
 
         redirect = '/svc/img/upload?'+urllib.urlencode({'stream_id':stream_id})
-        template_values['upload_url'] = blobstore.create_upload_url(redirect)
+        # template_values['upload_url'] = blobstore.create_upload_url(redirect)
+        template_values['upload_url'] = redirect
         template_values['stream'] = result['images']
         template_values['stream_id'] = stream_id
         template_values['page_range'] = page_range
@@ -321,7 +317,6 @@ class ViewHandler(HTTPRequestHandler):
             form['page_range'] = ','.join(str(int(i)+1) for i in self.request.get('page_range').split(','))
 
         status, result = self.callService('stream',svc,**form)
-        if 'error' in status: return self.redirect('/error',status)
 
         ret = {'stream_id':form['stream_id'],'user_id':form['user_id']}
         if self.request.get('next'):
@@ -330,7 +325,7 @@ class ViewHandler(HTTPRequestHandler):
             else:
                 ret['page_range'] = ','.join(map(str,result['page_range']))
 
-        self.redirect('/viewstream',ret)
+        return self.redirect('/viewstream',ret)
             
 
 app = webapp2.WSGIApplication([
@@ -341,18 +336,19 @@ app = webapp2.WSGIApplication([
     ,('/view', ViewAllHandler)
     ,('/create', CreateHandler)
     ,('/error',ErrorHandler)
-    ,('/search', SearchHandler)
+    ,('/search', SearchPageHandler)
     ,('/trending',TrendingHandler)
+    ,('/svc/search', SearchHandler)
     ,('/svc/img/upload',UploadHandler)
     ,('/svc/img/serve',ServeHandler)
-    ,('/svc/user/del', DeleteUserHandler)
+    ,('/svc/user/rm', DeleteUserHandler)
     ,('/svc/user/new', CreateUserHandler)    
     ,('/svc/stream/viewall',ViewAllStreamsHandler)
     ,('/svc/stream/view',ViewStreamHandler)
     ,('/svc/stream/sub', SubscribeStreamsHandler)
     ,('/svc/stream/unsub', UnsubscribeStreamsHandler)
     ,('/svc/stream/new', CreateStreamHandler)
-    ,('/svc/stream/del', DeleteStreamsHandler)
+    ,('/svc/stream/rm', DeleteStreamsHandler)
     ,('/svc/stream/get', GetStreamsHandler)
     ,('/svc/stream/addview', AddViewHandler)
     ,('/svc/report/getrate', GetReportRateHandler)

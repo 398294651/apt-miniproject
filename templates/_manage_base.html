@@ -2,27 +2,33 @@
 {% autoescape true %}
 <html>
   <head>
-    {% block head %}
     <meta charset="utf-8">
     <title>Connexus</title>
 
     <link type="text/css" rel="stylesheet" href="/css/main.css" />
     <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css">
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+    <script src="//ajax.googleapis.com/ajax/libs/jqueryui/1.11.1/jquery-ui.min.js"></script>
+
+    {% block head %}
     {% endblock %}
   </head>
   <body>
     
     <h1>Connex.us</h1>
 
+    <span class="h4">
     {% for link in nav_links %}
-      | 
+      {% if loop.index0 > 0 %}
+        |
+      {% endif %}
       {% if path == link %}
         {{ link }}
       {% else %}
         <a href="{{ nav_links[link] }}">{{ link }}</a>
       {% endif %}
-
     {% endfor %}
+    </span>
 
     {% block content %}
     {% endblock %}

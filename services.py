@@ -32,13 +32,15 @@ def cleanup(blob_keys):
 
 
 class ServiceHandler(webapp2.RequestHandler):
-  def respond(self,**response):
+  def respond(self,separators=(',', ':'),**response):
     if 'error' in response and response['error']:
       logging.error("Services: "+response['error'])
     elif 'status' in response:
       logging.debug("Services: "+response['status'])
 
-    return self.response.write(json.dumps(response))
+    if 'application/json' in self.request.headers.get('Accept'):
+        self.response.headers['Content-Type'] = 'application/json'            
+    return self.response.write(json.dumps(response,separators=separators))
 
 
 class ServeHandler(blobstore_handlers.BlobstoreDownloadHandler):
@@ -51,6 +53,12 @@ class ServeHandler(blobstore_handlers.BlobstoreDownloadHandler):
 
 
 class UploadHandler(blobstore_handlers.BlobstoreUploadHandler):
+  def get(self):
+    redirect = '/svc/img/upload?'+urllib.urlencode({'stream_id':self.request.get('stream_id')})
+    upload_url = blobstore.create_upload_url(redirect)
+    self.response.headers['Content-Type'] = 'application/json'
+    self.response.out.write('"' + upload_url + '"')
+
   def initialize(self, request, response):
     super(UploadHandler, self).initialize(request, response)
     self.response.headers['Access-Control-Allow-Origin'] = '*'
@@ -66,8 +74,8 @@ class UploadHandler(blobstore_handlers.BlobstoreUploadHandler):
         file['error'] = 'File is too small'
     elif file['size'] > MAX_FILE_SIZE:
         file['error'] = 'File is too big'
-    # elif not ACCEPT_FILE_TYPES.match(file['type']):
-    #     file['error'] = 'Filetype not allowed'
+    elif not ACCEPT_FILE_TYPES.match(file['type']):
+        file['error'] = 'Filetype not allowed'
     else:
         return True
     return False
@@ -100,17 +108,7 @@ class UploadHandler(blobstore_handlers.BlobstoreUploadHandler):
 
   def post(self):
     result = {'files': self.handle_upload()}
-
-    # redirect = self.request.get('redirect')
-    # if redirect:
-    #     return self.redirect(redirect)
-    # self.redirect('/viewstream?'+urllib.urlencode({'stream_id':self.request.get('stream_id')
-    #                                                ,'user_id':self.request.get('user_id')}))
-    if 'application/json' in self.request.headers.get('Accept'):
-        self.response.headers['Content-Type'] = 'application/json'
-
-    self.response.write(json.dumps(result, separators=(',', ':')))
-
+    self.response.write(json.dumps(result))
 
   def handle_upload(self):
     results = []
@@ -154,12 +152,25 @@ class UploadHandler(blobstore_handlers.BlobstoreUploadHandler):
       img = Image.getImage(key)
       Stream.getStream(img.stream_id).removeImage(img.image_id)
     blobstore.delete(key)
-    s = json.dumps({key: True}, separators=(',', ':'))
+
+    s = json.dumps({key: True}, separators=(',', ':'))    
     if 'application/json' in self.request.headers.get('Accept'):
-      self.response.headers['Content-Type'] = 'application/json'
+        self.response.headers['Content-Type'] = 'application/json'
+
     self.response.write(s)
     
+class SearchHandler(ServiceHandler):
+    def post(self):
+        results = []
+        for stream in search.Index(INDEX_NAME).search(search.Query(
+                query_string = self.request.get('qu') or self.request.get('term')
+                ,options=search.QueryOptions(limit = 5))):
+            results.append(stream.doc_id)
+                            # ,'subscribers':stream.fields[0].value
+                            # ,'tags':stream.fields[1].value})
 
+        self.respond(matches=results)
+    
 class SubscribeStreamsHandler(ServiceHandler):
     def post(self):
         form = json.loads(self.request.body)
@@ -278,17 +289,26 @@ class ViewStreamHandler(ServiceHandler):
         self.respond(page_range=outpages,images=images
                      , status="Grabbed pages %r from stream %r" % (outpages,form['stream_id']))
 
-    
 class GetStreamsHandler(ServiceHandler):
     def post(self):
         form = json.loads(self.request.body)
-        user = User.getUser(form['user_id'])
-        if not user:
-            return self.respond(error="User %(user_id)r does not exist" % form)
-        
-        payload = {'user_streams': [Stream.getStream(stream_id).dumpStream() for stream_id in user.user_streams if Stream.exists(stream_id)]
-                   , 'subscribed_streams': [Stream.getStream(stream_id).dumpStream() for stream_id in user.subscribed_streams if Stream.exists(stream_id)]
-                   , 'status': "Grabbed streams for user %(user_id)r" % form}
+
+        if 'user_id' in form:
+            user = User.getUser(form['user_id'])
+            if not user:
+                return self.respond(error="User %(user_id)r does not exist" % form)
+
+            user_streams = [Stream.getStream(stream_id).dumpStream()
+                            for stream_id in user.user_streams if Stream.exists(stream_id)]
+            sub_streams = [Stream.getStream(stream_id).dumpStream()
+                           for stream_id in user.subscribed_streams if Stream.exists(stream_id)]
+            payload = {'user_streams': user_streams
+                       , 'subscribed_streams': sub_streams
+                       , 'status': "Grabbed streams for user %(user_id)r" % form}
+        elif 'streams' in form:
+            streams = [Stream.getStream(s_id).dumpStream() for s_id in form['streams']
+                       if Stream.exists(s_id)]
+            payload = {'streams': streams}
 
         self.respond(**payload)
 
@@ -313,17 +333,6 @@ class CreateStreamHandler(ServiceHandler):
 
         # Update the user's stream list and insert stream into db
         user.addStream(new_stream)
-
-        d = search.Document(
-            doc_id   = form['stream_id']
-            ,fields   = [search.TextField(name='stream_id', value=form['stream_id'])
-                         ,search.HtmlField(name='cover_url', value=form['cover_url'])]
-            ,language = 'en')
-        try:
-            search.Index(name=INDEX_NAME).put(d)
-        except search.Error as e:
-            self.respond(error=str(e))
-
         self.respond(status="Created stream %(stream_id)r for user %(user_id)r." % form)
         
 
@@ -382,6 +391,24 @@ classes = (User,Image,Stream)
 funcs = ('dump','clear')
 CallHandler = {'_'.join( (mthd,cls.__name__.lower()+'s') ): getattr(cls,mthd)
                for mthd,cls in itertools.product(funcs,classes)}
+
+def ClearIndex(name=INDEX_NAME):
+    doc_index = search.Index(name=name)
+
+    # looping because get_range by default returns up to 100 documents at a time
+    while True:
+        # Get a list of documents populating only the doc_id field and extract the ids.
+        document_ids = [document.doc_id
+                        for document in doc_index.get_range(ids_only=True)]
+        if not document_ids:
+            break
+        
+        # Delete the documents for the given ids from the Index.
+        doc_index.delete(document_ids)
+
+    return document_ids
+
+CallHandler['clear_index'] = ClearIndex
 
 class TestServiceHandler(ServiceHandler):
     def post(self):
